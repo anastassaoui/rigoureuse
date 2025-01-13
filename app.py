@@ -3,8 +3,10 @@ import pandas as pd
 from scipy.interpolate import interp1d
 import streamlit as st
 import os
+import chart
 
 # ------------------------- Helper Functions -------------------------
+st.set_page_config(layout="wide")
 
 def load_k_values_from_csv(component):
     filepath = f"data/{component}.csv"
@@ -13,7 +15,7 @@ def load_k_values_from_csv(component):
         st.stop()
 
     data = pd.read_csv(filepath)
-    data.columns = data.columns.str.strip()  # Supprime les espaces autour des noms de colonnes
+    data.columns = data.columns.str.strip() 
 
     if "T" not in data.columns or "K" not in data.columns:
         st.error(f"Le fichier {component}.csv doit contenir des colonnes 'T' et 'K'.")
@@ -87,8 +89,8 @@ def run_simulation(max_iterations, tolerance):
     for iteration in range(max_iterations):
         stage_sums.fill(0)
         S_values = []
-        st.subheader(f"Iteration {iteration + 1}")
-        cols = st.columns(len(components))
+        st.sidebar.subheader(f"Iteration {iteration + 1}")
+        cols = st.sidebar.columns(len(components))
         for i, comp in enumerate(components):
             k_interp = load_k_values_from_csv(comp)
             K_values = [k_interp(T_dict[j]) for j in range(1, N + 1)]
@@ -127,7 +129,7 @@ def run_simulation(max_iterations, tolerance):
             new_T_dict[j] = T_dict[j] - S_j * 0.1
 
         max_temp_diff = max(abs(new_T_dict[j] - T_dict[j]) for j in range(1, N + 1))
-        st.text(f"S_j values: {', '.join(f'{S:.4f}' for S in S_values)}")
+        st.sidebar.text(f"S_j values: {', '.join(f'{S:.4f}' for S in S_values)}")
 
         if max_temp_diff < tolerance:
             st.success("Converged!")
@@ -144,20 +146,30 @@ def run_simulation(max_iterations, tolerance):
 
 # ------------------------- Streamlit Interface -------------------------
 
-st.title("Distillation Simulation")
-st.sidebar.header("Simulation Parameters")
+st.sidebar.title("Distillation Simulation")
 
 max_iterations = st.sidebar.number_input("Max Iterations", min_value=1, value=12)
-tolerance = st.sidebar.number_input("Tolerance", min_value=0.0001, value=0.01, step=0.0001)
+tolerance = st.sidebar.slider("Tolerance", min_value=0.0001, value=0.05, step=0.0001)
 
-if st.button("Run Simulation"):
+if st.sidebar.button("Run Simulation"):
     with st.spinner("Running simulation..."):
         results = run_simulation(max_iterations, tolerance)
 
-    st.subheader("Normalized x_ij")
-    normalized_df = pd.DataFrame(results["x_normalized"])
-    st.dataframe(normalized_df)
-
-    st.subheader("Stage Temperatures")
-    stage_temp_df = pd.DataFrame({"Stage": range(1, len(results["stage_temperatures"]) + 1), "Temperature (°F)": results["stage_temperatures"]})
+    stage_temp_df = pd.DataFrame({"Stage": range(1, len(results["stage_temperatures"]) + 1), 
+                                  "Temperature (°F)": results["stage_temperatures"]})
+    st.subheader("Simulation Results")
     st.dataframe(stage_temp_df)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(chart.plot_stage_temperatures(results["stage_temperatures"]))
+    with col2:        
+        st.plotly_chart(chart.plot_normalized_compositions(results["x_normalized"]))
+    with col3:
+        st.plotly_chart(chart.plot_convergence(results["S_values"]))
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        st.plotly_chart(chart.plot_composition_totals(results["x_normalized"]))
+    with col5:
+        st.plotly_chart(chart.plot_temperature_vs_composition(results["stage_temperatures"], results["x_normalized"]))
+    with col6:
+        st.plotly_chart(chart.plot_stage_contributions(results["x_normalized"]))
