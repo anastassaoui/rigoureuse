@@ -150,7 +150,7 @@ def run_simulation(max_iterations, tolerance):
 
 st.sidebar.title("Distillation Simulation")
 
-max_iterations = st.sidebar.number_input("Max Iterations", min_value=1, value=12)
+max_iterations = st.sidebar.number_input("Max Iterations", min_value=1, value=31)
 tolerance = st.sidebar.slider("Tolerance", min_value=0.0001, value=0.05, step=0.0001)
 
 if st.sidebar.button("Run Simulation"):
